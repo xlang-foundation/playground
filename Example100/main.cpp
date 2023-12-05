@@ -3,44 +3,6 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include "xload.h"
-#include "xpackage.h"
-#include "xlang.h"
-
-int DrawObj(int x, int y, int w, int h, const char* objName);
-void UpdateObj(int id, int x, int y);
-
-//Begin XLang API Exports
-class DrawSystem
-{
-    HWND m_hwnd;
-public:
-    BEGIN_PACKAGE(DrawSystem)
-        APISET().AddEvent("OnTimer");
-        APISET().AddFunc<5>("DrawObj", &DrawSystem::DrawObjAPI);
-        APISET().AddFunc<3>("UpdateObj", &DrawSystem::UpdateObjAPI);
-        APISET().AddFunc<2>("CreateTimer", &DrawSystem::CreateTimerAPI);
-    END_PACKAGE
-
-    inline int DrawObjAPI(int x, int y, int w, int h, std::string name)
-    {
-        return DrawObj(x, y, w, h, name.c_str());
-    }
-    inline bool UpdateObjAPI(int id, int x, int y)
-    {
-        UpdateObj(id, x, y);
-        return true;
-    }
-    inline int CreateTimerAPI(int id, int interval)
-    {
-		return (int)SetTimer(m_hwnd, id, interval, NULL);
-	}
-    inline void SetWnd(HWND hwnd) { m_hwnd = hwnd; }
-};
-
-DrawSystem drawSystem;
-
-//End
 
 // Structure to hold drawing information
 struct DrawItem {
@@ -62,9 +24,6 @@ void UpdateObj(int id, int x, int y);
 // WinMain: Entry point for a Windows application
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    X::XLoad g_xload;
-
-    X::Config config;
     char exePath[MAX_PATH];
     GetModuleFileName(NULL, exePath, MAX_PATH);
 
@@ -73,24 +32,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (pos != progName.npos)
     {
         std::string strAppPath = progName.substr(0, pos);
-        config.appPath = new char[strAppPath.length() + 1];
-        memcpy((char*)config.appPath, strAppPath.data(), strAppPath.length() + 1);
+        char* appPath = new char[strAppPath.length() + 1];
+        memcpy((char*)appPath, strAppPath.data(), strAppPath.length() + 1);
+        std::cout << "AppPath:" << appPath << std::endl;
+        delete [] appPath;
     }
-    config.appFullName = new char[progName.length() + 1];
-    memcpy((char*)config.appFullName, progName.data(), progName.length() + 1);
-
-	config.dbg = true;
-    config.runEventLoopInThread = true;
-    config.enterEventLoop = true;
-    int retCode = g_xload.Load(&config);
-    if (retCode == 0) {
-        g_xload.Run();
-    }
-    X::RegisterPackage<DrawSystem>(config.appFullName,"DrawSystem", &drawSystem);
-
-    //if you need to enalbe remoting, add line below
-    //then can use import DrawSystem thru 'lrpc:101' to import DrawSystem in another process
-    X::g_pXHost->Lrpc_Listen(101, false);
+    char* appFullName = new char[progName.length() + 1];
+    memcpy((char*)appFullName, progName.data(), progName.length() + 1);
+    std::cout << "AppFullName:" << appFullName << std::endl;
+    delete [] appFullName;
 
     WNDCLASSEX wc;
     MSG Msg;
@@ -119,9 +69,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     hwnd = CreateWindowEx(
         WS_EX_CLIENTEDGE,
         g_szClassName,
-        "A Simple Win32 App with XLang",
+        "A Simple Win32 App",
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 1024, 768,
+        CW_USEDEFAULT, CW_USEDEFAULT, 640,480,
         NULL, NULL, hInstance, NULL);
 
     if (hwnd == NULL)
@@ -129,18 +79,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         MessageBox(NULL, "Window Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
-    drawSystem.SetWnd(hwnd);
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
 
-    //UINT_PTR timerID = SetTimer(hwnd, 0, 1000, NULL);
+    UINT_PTR timerID = SetTimer(hwnd, 0, 1000, NULL);
 
     // Adding test draw objects
-    //int id1 = DrawObj(50, 50, 100, 20, "First Object");
-    //int id2 = DrawObj(70, 80, 150, 20, "Second Object");
+    int id1 = DrawObj(50, 50, 200, 50, "First Object");
+    int id2 = DrawObj(200, 80, 250, 50, "Second Object");
 
     // Optionally, update an object
-    //UpdateObj(id1, 60, 60);
+    UpdateObj(id1, 60, 60);
 
     // The Message Loop
     while (GetMessage(&Msg, NULL, 0, 0) > 0)
@@ -149,7 +98,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         DispatchMessage(&Msg);
     }
 
-    g_xload.Unload();
     return Msg.wParam;
 }
 
@@ -190,11 +138,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_TIMER:
     {
         int timerID = (int)wParam;
-        X::ARGS args(1);
-        args.push_back(timerID);
-        X::KWARGS kwargs;
-        //0 is the index of OnTimer event
-        drawSystem.Fire(0, args, kwargs);
     }
         break;
     default:
