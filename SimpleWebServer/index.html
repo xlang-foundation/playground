@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xlang Simple WebServer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background-color: #333;
+            color: #fff;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .auth-section {
+            text-align: right;
+        }
+        
+        .auth-section button {
+            margin-left: 10px;
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .auth-section button:hover {
+            background-color: #45a049;
+        }
+        
+        .content {
+            background-color: white;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 5px;
+            width: 300px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close-btn:hover {
+            color: black;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .submit-btn:hover {
+            background-color: #45a049;
+        }
+        
+        .error-msg {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+        }
+        
+        .user-welcome {
+            font-weight: bold;
+            color: white;
+            margin-right: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Simple XLang WebServer</h1>
+        <div class="auth-section" id="auth-buttons">
+            <button id="login-btn">Login</button>
+            <button id="register-btn">Register</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="content" id="main-content">
+            <h2>Welcome to the Simple WebServer</h2>
+            <p>This is a basic web application with user authentication.</p>
+            <p>Please log in to see more content.</p>
+        </div>
+    </div>
+    
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="login-close">&times;</span>
+            <h2>Login</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Username:</label>
+                    <input type="text" id="login-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password:</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit" class="submit-btn">Login</button>
+                <div id="login-error" class="error-msg"></div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Register Modal -->
+    <div id="register-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="register-close">&times;</span>
+            <h2>Register</h2>
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="register-username">Username:</label>
+                    <input type="text" id="register-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-display-name">Display Name:</label>
+                    <input type="text" id="register-display-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-password">Password:</label>
+                    <input type="password" id="register-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-confirm-password">Confirm Password:</label>
+                    <input type="password" id="register-confirm-password" required>
+                </div>
+                <button type="submit" class="submit-btn">Register</button>
+                <div id="register-error" class="error-msg"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let isLoggedIn = false;
+        let currentUser = null;
+        let authToken = null;
+        
+        // DOM Elements
+        const loginBtn = document.getElementById('login-btn');
+        const registerBtn = document.getElementById('register-btn');
+        const loginModal = document.getElementById('login-modal');
+        const registerModal = document.getElementById('register-modal');
+        const loginClose = document.getElementById('login-close');
+        const registerClose = document.getElementById('register-close');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const loginError = document.getElementById('login-error');
+        const registerError = document.getElementById('register-error');
+        const mainContent = document.getElementById('main-content');
+        const authSection = document.getElementById('auth-buttons');
+        
+        // Check if user is already logged in
+        function checkAuth() {
+            const savedToken = localStorage.getItem('authToken');
+            const savedUser = localStorage.getItem('currentUser');
+            
+            if (savedToken && savedUser) {
+                try {
+                    authToken = savedToken;
+                    currentUser = JSON.parse(savedUser);
+                    isLoggedIn = true;
+                    updateAuthUI();
+                    loadUserContent();
+                } catch (error) {
+                    console.error('Error parsing saved user:', error);
+                    logout();
+                }
+            }
+        }
+        
+        // Update the auth UI based on login status
+        function updateAuthUI() {
+            if (isLoggedIn) {
+                authSection.innerHTML = `
+                    <span class="user-welcome">Welcome, ${currentUser.display_name}</span>
+                    <button id="refresh-btn">Refresh Users</button>
+                    <button id="logout-btn">Logout</button>
+                `;
+                
+                // Add event listeners to new buttons
+                document.getElementById('logout-btn').addEventListener('click', logout);
+                document.getElementById('refresh-btn').addEventListener('click', loadUserContent);
+            } else {
+                authSection.innerHTML = `
+                    <button id="login-btn">Login</button>
+                    <button id="register-btn">Register</button>
+                `;
+                
+                // Re-attach event listeners
+                document.getElementById('login-btn').addEventListener('click', () => loginModal.style.display = 'block');
+                document.getElementById('register-btn').addEventListener('click', () => registerModal.style.display = 'block');
+            }
+        }
+        
+        // Load user content (user list) after login
+        function loadUserContent() {
+            if (!isLoggedIn) return;
+            
+            fetch('/api/users', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let content = `
+                        <h2>Welcome, ${currentUser.display_name}!</h2>
+                        <p>You are now logged in. Here is the list of registered users:</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Display Name</th>
+                                    <th>Last Login</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.users.forEach(user => {
+                        content += `
+                            <tr>
+                                <td>${user.username}</td>
+                                <td>${user.display_name}</td>
+                                <td>${user.last_login || 'Never'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    content += `
+                            </tbody>
+                        </table>
+                    `;
+                    
+                    mainContent.innerHTML = content;
+                } else {
+                    mainContent.innerHTML = `
+                        <h2>Error</h2>
+                        <p>${data.message}</p>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching users:', error);
+                mainContent.innerHTML = `
+                    <h2>Error</h2>
+                    <p>Failed to load user data. Please try again later.</p>
+                `;
+            });
+        }
+        
+        // Logout function
+        function logout() {
+            isLoggedIn = false;
+            currentUser = null;
+            authToken = null;
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            updateAuthUI();
+            
+            mainContent.innerHTML = `
+                <h2>Welcome to the Simple WebServer</h2>
+                <p>This is a basic web application with user authentication.</p>
+                <p>Please log in to see more content.</p>
+            `;
+        }
+        
+        // Login form submission
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            
+            fetch('/api/login', {
+                method: 'POST',
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    isLoggedIn = true;
+                    currentUser = {
+                        username: data.username,
+                        display_name: data.display_name
+                    };
+                    authToken = data.token;
+                    
+                    // Save to localStorage
+                    localStorage.setItem('authToken', authToken);
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    
+                    loginModal.style.display = 'none';
+                    updateAuthUI();
+                    loadUserContent();
+                    
+                    // Clear form
+                    loginForm.reset();
+                } else {
+                    loginError.textContent = data.message;
+                    loginError.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Login error:', error);
+                loginError.textContent = 'An error occurred while logging in. Please try again.';
+                loginError.style.display = 'block';
+            });
+        });
+        
+        // Register form submission
+        registerForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('register-username').value;
+            const displayName = document.getElementById('register-display-name').value;
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-confirm-password').value;
+            
+            // Check if passwords match
+            if (password !== confirmPassword) {
+                registerError.textContent = 'Passwords do not match!';
+                registerError.style.display = 'block';
+                return;
+            }
+            
+            fetch('/api/register', {
+                method: 'POST',
+                body: JSON.stringify({
+                    username: username,
+                    password: password,
+                    display_name: displayName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    registerModal.style.display = 'none';
+                    alert('Registration successful! You can now login.');
+                    registerForm.reset();
+                    
+                    // Open login modal
+                    loginModal.style.display = 'block';
+                } else {
+                    registerError.textContent = data.message;
+                    registerError.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Registration error:', error);
+                registerError.textContent = 'An error occurred while registering. Please try again.';
+                registerError.style.display = 'block';
+            });
+        });
+        
+        // Modal event listeners
+        loginBtn.addEventListener('click', () => loginModal.style.display = 'block');
+        registerBtn.addEventListener('click', () => registerModal.style.display = 'block');
+        loginClose.addEventListener('click', () => loginModal.style.display = 'none');
+        registerClose.addEventListener('click', () => registerModal.style.display = 'none');
+        
+        // Close modals when clicking outside of them
+        window.addEventListener('click', function(e) {
+            if (e.target === loginModal) loginModal.style.display = 'none';
+            if (e.target === registerModal) registerModal.style.display = 'none';
+        });
+        
+        // Clear error messages when typing
+        document.getElementById('login-username').addEventListener('input', () => loginError.style.display = 'none');
+        document.getElementById('login-password').addEventListener('input', () => loginError.style.display = 'none');
+        document.getElementById('register-username').addEventListener('input', () => registerError.style.display = 'none');
+        document.getElementById('register-password').addEventListener('input', () => registerError.style.display = 'none');
+        document.getElementById('register-confirm-password').addEventListener('input', () => registerError.style.display = 'none');
+        
+        // Ping the server to check if it's running
+        fetch('/api/ping')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Server is running');
+                }
+            })
+            .catch(error => {
+                console.error('Server connection error:', error);
+                mainContent.innerHTML = `
+                    <h2>Connection Error</h2>
+                    <p>Cannot connect to the server. Please make sure it's running.</p>
+                `;
+            });
+        
+        // Check authentication status on page load
+        document.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</body>
+</html>
